@@ -1,0 +1,37 @@
+manage_tasks_task:
+  description: >
+    Capture user-provided tasks, organize them by priority (high, medium,
+    low), and suggest deadlines where relevant.
+  expected_output: >
+    A structured to-do list with tasks categorized by priority and
+    suggested due dates.
+  agent: task_manager
+
+handle_email_task:
+  description: >
+    Summarize unread emails, draft professional responses, and
+    prepare email templates when needed.
+  expected_output: >
+    A set of summarized emails and suggested replies or templates.
+  agent: email_assistant
+
+schedule_calendar_task:
+  description: >
+    Take user-provided events or tasks and schedule them in a daily or
+    weekly calendar. Avoid conflicts by suggesting the best time slots.
+  expected_output: >
+    A proposed schedule with events mapped to dates/times, avoiding conflicts.
+  agent: calendar_scheduler
+
+generate_productivity_report_task:
+  description: >
+    Create a daily or weekly productivity report that summarizes
+    completed tasks, pending tasks, upcoming deadlines, and meetings.
+  expected_output: >
+    A markdown-formatted productivity report including:
+    - Completed tasks
+    - Pending tasks
+    - Upcoming deadlines
+    - Scheduled meetings
+    - Motivation / recommendations
+  agent: productivity_reporter
