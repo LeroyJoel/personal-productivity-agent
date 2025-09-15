@@ -1,12 +1,8 @@
 #!/usr/bin/env python
-# import sys, os
-# sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import sys
 import warnings
-
 from datetime import datetime
-# from .crew import PersonalProductivityAgent
 from personal_productivity_agent.crew import PersonalProductivityAgent
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
@@ -31,17 +27,45 @@ def run():
         raise Exception(f"An error occurred while running the crew: {e}")
 
 
-
 def run_with_inputs(inputs: dict):
     """
     Run the crew with user-provided inputs (from streamlit).
     """
     try:
-        result = PersonalProductivityAgent().crew().kickoff(inputs=inputs)
+        # Transform the inputs from Streamlit to match what CrewAI agents expect
+        transformed_inputs = {
+            # Add current date/time context
+            'current_date': datetime.now().strftime("%Y-%m-%d"),
+            'current_time': datetime.now().strftime("%H:%M"),
+            'current_year': str(datetime.now().year),
+            
+            # Task management inputs
+            'user_tasks': inputs.get('tasks', []),
+            'task_priority': inputs.get('priority', 'Medium'),
+            
+            # Email inputs
+            'user_emails': inputs.get('emails', ''),
+            
+            # Calendar inputs
+            'user_events': inputs.get('events', []),
+            
+            # Report type
+            'report_period': inputs.get('report_type', 'Daily').lower(),
+            
+            # Additional context that might be useful for agents
+            'tasks_text': '\n'.join(inputs.get('tasks', [])) if inputs.get('tasks') else '',
+            'events_text': '\n'.join(inputs.get('events', [])) if inputs.get('events') else '',
+        }
+        
+        # Filter out empty values to avoid passing empty strings/lists
+        filtered_inputs = {k: v for k, v in transformed_inputs.items() if v}
+        
+        print(f"Transformed inputs: {filtered_inputs}")  # Debug print
+        
+        result = PersonalProductivityAgent().crew().kickoff(inputs=filtered_inputs)
         return result
     except Exception as e:
         raise Exception(f"An error occurred while running the crew with inputs: {e}")
-
 
 
 def train():

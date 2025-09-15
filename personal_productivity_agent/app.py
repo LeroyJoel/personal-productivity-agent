@@ -18,6 +18,8 @@ from main import run_with_inputs
 from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+import json
+import re
 
 st.set_page_config(page_title="Personal Productivity Agent Crew", layout="wide")
 st.title("🧑‍💻 Personal Productivity Agent Crew")
@@ -52,49 +54,110 @@ if st.button("🚀 Generate Productivity Report"):
         }
 
         # Run the Crew
-        insights = run_with_inputs(inputs)
-        st.markdown(insights)
-
-    st.success("✅ Productivity Report Ready")
+        try:
+            result = run_with_inputs(inputs)
+            
+            # Handle different types of CrewAI results
+            if hasattr(result, 'raw'):
+                # CrewAI TaskOutput object
+                insights = result.raw
+            elif hasattr(result, 'result'):
+                # CrewAI Result object
+                insights = result.result
+            elif isinstance(result, dict):
+                # Dictionary result
+                insights = result.get('result', str(result))
+            else:
+                # Direct string or other result
+                insights = str(result)
+            
+            st.success("✅ Productivity Report Ready")
+            
+        except Exception as e:
+            st.error(f"Error generating report: {str(e)}")
+            insights = None
 
     # --- Display Report ---
-    if isinstance(insights, str):
-        st.markdown(insights, unsafe_allow_html=True)
-        insights_text = insights
-    else:
-        st.write(insights)
-        insights_text = str(insights)
+    if insights:
+        # Clean up the insights text
+        if isinstance(insights, str):
+            # Remove JSON formatting artifacts if present
+            cleaned_insights = insights.strip()
+            
+            # If it looks like JSON, try to extract the actual content
+            if cleaned_insights.startswith('{') or cleaned_insights.startswith('['):
+                try:
+                    parsed_json = json.loads(cleaned_insights)
+                    if isinstance(parsed_json, dict) and 'content' in parsed_json:
+                        cleaned_insights = parsed_json['content']
+                    elif isinstance(parsed_json, dict) and 'result' in parsed_json:
+                        cleaned_insights = parsed_json['result']
+                    else:
+                        cleaned_insights = str(parsed_json)
+                except json.JSONDecodeError:
+                    pass  # Keep original if not valid JSON
+            
+            # Remove excessive newlines and clean up markdown
+            cleaned_insights = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_insights)
+            cleaned_insights = cleaned_insights.strip()
+            
+            # Display the cleaned report
+            st.markdown("## 📊 Your Productivity Report")
+            st.markdown(cleaned_insights, unsafe_allow_html=False)
+            
+            insights_text = cleaned_insights
+        else:
+            st.markdown("## 📊 Your Productivity Report")
+            st.write(insights)
+            insights_text = str(insights)
 
-    # --- Download as Markdown ---
-    st.download_button(
-        label="⬇️ Download Report (Markdown)",
-        data=insights_text,
-        file_name="productivity_report.md",
-        mime="text/markdown"
-    )
+        # --- Download Buttons ---
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # --- Download as Markdown ---
+            st.download_button(
+                label="⬇️ Download Report (Markdown)",
+                data=insights_text,
+                file_name=f"productivity_report_{report_type.lower()}.md",
+                mime="text/markdown"
+            )
 
-    # --- Download as PDF ---
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer)
-    styles = getSampleStyleSheet()
-    story = []
+        with col2:
+            # --- Download as PDF ---
+            try:
+                buffer = BytesIO()
+                doc = SimpleDocDocument(buffer)
+                styles = getSampleStyleSheet()
+                story = []
 
-    for line in insights_text.split("\n"):
-        if line.strip():
-            if line.startswith("## "):  # headings
-                story.append(Paragraph(f"<b>{line}</b>", styles["Heading2"]))
-            elif line.startswith("- "):  # bullet points
-                story.append(Paragraph(line, styles["Normal"]))
-            else:
-                story.append(Paragraph(line, styles["Normal"]))
-            story.append(Spacer(1, 10))
+                # Split text into lines and format for PDF
+                lines = insights_text.split("\n")
+                for line in lines:
+                    line = line.strip()
+                    if line:
+                        if line.startswith("# "):  # Main headings
+                            story.append(Paragraph(f"<b>{line[2:]}</b>", styles["Title"]))
+                        elif line.startswith("## "):  # Sub headings
+                            story.append(Paragraph(f"<b>{line[3:]}</b>", styles["Heading2"]))
+                        elif line.startswith("### "):  # Sub-sub headings
+                            story.append(Paragraph(f"<b>{line[4:]}</b>", styles["Heading3"]))
+                        elif line.startswith("* ") or line.startswith("- "):  # Bullet points
+                            story.append(Paragraph(f"• {line[2:]}", styles["Normal"]))
+                        elif line.startswith("**") and line.endswith("**"):  # Bold text
+                            story.append(Paragraph(f"<b>{line[2:-2]}</b>", styles["Normal"]))
+                        else:
+                            story.append(Paragraph(line, styles["Normal"]))
+                        story.append(Spacer(1, 6))
 
-    doc.build(story)
-    buffer.seek(0)
+                doc.build(story)
+                buffer.seek(0)
 
-    st.download_button(
-        label="⬇️ Download Report (PDF)",
-        data=buffer,
-        file_name="productivity_report.pdf",
-        mime="application/pdf"
-    )
+                st.download_button(
+                    label="⬇️ Download Report (PDF)",
+                    data=buffer,
+                    file_name=f"productivity_report_{report_type.lower()}.pdf",
+                    mime="application/pdf"
+                )
+            except Exception as e:
+                st.error(f"PDF generation failed: {str(e)}")
